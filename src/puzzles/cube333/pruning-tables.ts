@@ -70,9 +70,10 @@ interface Coordinate {
 
 /**
  * Computes the distance to the goal of every pair of coordinate values, one depth at a time.
+ * Expands the frontier forward while it is small, then lets each unvisited entry look for a parent.
  * @param outer - The coordinate that varies slowest in the table index.
  * @param inner - The coordinate that varies fastest in the table index.
- * @param moveCount - The number of moves in both move tables.
+ * @param moveCount - The number of moves in both move tables, which contain every inverse move.
  * @returns The distances, indexed by outer value times inner count plus inner value.
  */
 function breadthFirst(outer: Coordinate, inner: Coordinate, moveCount: number): Uint8Array {
@@ -81,20 +82,29 @@ function breadthFirst(outer: Coordinate, inner: Coordinate, moveCount: number): 
   distances[outer.goal * inner.count + inner.goal] = 0;
   let visited = 1;
   for (let depth = 0; visited < size; depth++) {
-    const before = visited;
-    for (let index = 0; index < size; index++) {
-      if (distances[index] !== depth) continue;
-      const a = Math.floor(index / inner.count) * moveCount;
-      const b = (index % inner.count) * moveCount;
-      for (let m = 0; m < moveCount; m++) {
-        const next = outer.table[a + m] * inner.count + inner.table[b + m];
-        if (distances[next] === UNVISITED) {
-          distances[next] = depth + 1;
-          visited++;
+    const backward = visited * 2 > size;
+    const wanted = backward ? UNVISITED : depth;
+    for (let a = 0; a < outer.count; a++) {
+      const outerRow = a * moveCount;
+      const base = a * inner.count;
+      for (let b = 0; b < inner.count; b++) {
+        if (distances[base + b] !== wanted) continue;
+        const innerRow = b * moveCount;
+        for (let m = 0; m < moveCount; m++) {
+          const neighbour = outer.table[outerRow + m] * inner.count + inner.table[innerRow + m];
+          if (backward) {
+            if (distances[neighbour] === depth) {
+              distances[base + b] = depth + 1;
+              visited++;
+              break;
+            }
+          } else if (distances[neighbour] === UNVISITED) {
+            distances[neighbour] = depth + 1;
+            visited++;
+          }
         }
       }
     }
-    if (visited === before) break;
   }
   return distances;
 }

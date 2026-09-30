@@ -58,30 +58,32 @@ function buildMoveTables(): MoveTables {
   const all = MOVES.map(moveState);
   const phase2 = PHASE2_MOVES.map((index) => all[index]);
   return {
-    twist: buildTable(Uint16Array, TWIST_COUNT, all, (t, m) => {
-      const co = setTwist(t);
-      return getTwist(m.cp.map((from, i) => (co[from] + m.co[i]) % 3));
-    }),
-    flip: buildTable(Uint16Array, FLIP_COUNT, all, (f, m) => {
-      const eo = setFlip(f);
-      return getFlip(m.ep.map((from, i) => (eo[from] + m.eo[i]) % 2));
-    }),
-    slice: buildTable(Uint16Array, SLICE_COUNT, all, (s, m) => {
-      const ep = setSlice(s);
-      return getSlice(m.ep.map((from) => ep[from]));
-    }),
-    cornerPerm: buildTable(Uint16Array, CORNER_PERM_COUNT, phase2, (c, m) => {
-      const cp = setCornerPerm(c);
-      return getCornerPerm(m.cp.map((from) => cp[from]));
-    }),
-    udEdgePerm: buildTable(Uint16Array, UD_EDGE_PERM_COUNT, phase2, (e, m) => {
-      const ep = setPhase2EdgePerm(e, 0);
-      return getUDEdgePerm(m.ep.map((from) => ep[from]));
-    }),
-    slicePerm: buildTable(Uint8Array, SLICE_PERM_COUNT, phase2, (s, m) => {
-      const ep = setPhase2EdgePerm(0, s);
-      return getSlicePerm(m.ep.map((from) => ep[from]));
-    }),
+    twist: buildTable(Uint16Array, TWIST_COUNT, all, setTwist, (co, m) =>
+      getTwist(m.cp.map((from, i) => (co[from] + m.co[i]) % 3)),
+    ),
+    flip: buildTable(Uint16Array, FLIP_COUNT, all, setFlip, (eo, m) =>
+      getFlip(m.ep.map((from, i) => (eo[from] + m.eo[i]) % 2)),
+    ),
+    slice: buildTable(Uint16Array, SLICE_COUNT, all, setSlice, (ep, m) =>
+      getSlice(m.ep.map((from) => ep[from])),
+    ),
+    cornerPerm: buildTable(Uint16Array, CORNER_PERM_COUNT, phase2, setCornerPerm, (cp, m) =>
+      getCornerPerm(m.cp.map((from) => cp[from])),
+    ),
+    udEdgePerm: buildTable(
+      Uint16Array,
+      UD_EDGE_PERM_COUNT,
+      phase2,
+      (e) => setPhase2EdgePerm(e, 0),
+      (ep, m) => getUDEdgePerm(m.ep.map((from) => ep[from])),
+    ),
+    slicePerm: buildTable(
+      Uint8Array,
+      SLICE_PERM_COUNT,
+      phase2,
+      (sp) => setPhase2EdgePerm(0, sp),
+      (ep, m) => getSlicePerm(m.ep.map((from) => ep[from])),
+    ),
   };
 }
 
@@ -90,19 +92,22 @@ function buildMoveTables(): MoveTables {
  * @param ArrayType - The typed array class to allocate.
  * @param count - The number of coordinate values.
  * @param moves - The move states, in table order.
- * @param apply - Returns the coordinate value after a move.
+ * @param decode - Turns a coordinate value into the pieces it describes, once per value.
+ * @param apply - Returns the coordinate value after applying a move to the decoded pieces.
  * @returns The table, indexed by value times the number of moves plus the move index.
  */
 function buildTable<T extends Uint8Array | Uint16Array>(
   ArrayType: new (length: number) => T,
   count: number,
   moves: readonly CubeState[],
-  apply: (value: number, move: CubeState) => number,
+  decode: (value: number) => number[],
+  apply: (pieces: number[], move: CubeState) => number,
 ): T {
   const table = new ArrayType(count * moves.length);
   for (let value = 0; value < count; value++) {
+    const pieces = decode(value);
     moves.forEach((move, m) => {
-      table[value * moves.length + m] = apply(value, move);
+      table[value * moves.length + m] = apply(pieces, move);
     });
   }
   return table;

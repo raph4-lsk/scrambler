@@ -3,6 +3,10 @@
   <p>Random state scrambles for speedcubing puzzles, following the WCA method.</p>
 </div>
 
+## Why
+
+Existing scramblers do not fit React Native apps: the reference ones (TNoodle, min2phase, csTimer) are GPL licensed, and cubing.js needs browser APIs that React Native does not provide. This library brings random state scrambles to React Native under the MIT license.
+
 ## Features
 
 - Random state 3x3 scrambles (two-phase algorithm)
@@ -28,10 +32,6 @@ npm install
 npm test
 npm run build
 ```
-
-## Note
-
-These scrambles follow the WCA method but are not official WCA scrambles. This project is not affiliated with the World Cube Association.
 
 ## License
 

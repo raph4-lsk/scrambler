@@ -1,6 +1,6 @@
 {
   "name": "@cubertimer/scrambler",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Random state scrambles for speedcubing puzzles, following the WCA method. Pure TypeScript, no dependency, works in React Native.",
   "keywords": [
     "speedcubing",

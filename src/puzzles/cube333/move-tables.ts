@@ -1,15 +1,10 @@
 import {
   CORNER_PERM_COUNT,
   FLIP_COUNT,
-  getCornerPerm,
   getFlip,
   getSlice,
-  getSlicePerm,
   getTwist,
-  getUDEdgePerm,
-  setCornerPerm,
   setFlip,
-  setPhase2EdgePerm,
   setSlice,
   setTwist,
   SLICE_COUNT,
@@ -39,6 +34,12 @@ export interface MoveTables {
   readonly slicePerm: Uint8Array;
 }
 
+const BIT_COUNTS = Uint8Array.from({ length: 256 }, (_, n) => {
+  let count = 0;
+  for (let bits = n; bits > 0; bits >>= 1) count += bits & 1;
+  return count;
+});
+
 let cached: MoveTables | undefined;
 
 /**
@@ -67,22 +68,17 @@ function buildMoveTables(): MoveTables {
     slice: buildTable(Uint16Array, SLICE_COUNT, all, setSlice, (ep, m) =>
       getSlice(m.ep.map((from) => ep[from])),
     ),
-    cornerPerm: buildTable(Uint16Array, CORNER_PERM_COUNT, phase2, setCornerPerm, (cp, m) =>
-      getCornerPerm(m.cp.map((from) => cp[from])),
+    cornerPerm: buildPermutationTable(
+      new Uint16Array(CORNER_PERM_COUNT * phase2.length),
+      phase2.map((m) => m.cp),
     ),
-    udEdgePerm: buildTable(
-      Uint16Array,
-      UD_EDGE_PERM_COUNT,
-      phase2,
-      (e) => setPhase2EdgePerm(e, 0),
-      (ep, m) => getUDEdgePerm(m.ep.map((from) => ep[from])),
+    udEdgePerm: buildPermutationTable(
+      new Uint16Array(UD_EDGE_PERM_COUNT * phase2.length),
+      phase2.map((m) => m.ep.slice(0, 8)),
     ),
-    slicePerm: buildTable(
-      Uint8Array,
-      SLICE_PERM_COUNT,
-      phase2,
-      (sp) => setPhase2EdgePerm(0, sp),
-      (ep, m) => getSlicePerm(m.ep.map((from) => ep[from])),
+    slicePerm: buildPermutationTable(
+      new Uint8Array(SLICE_PERM_COUNT * phase2.length),
+      phase2.map((m) => m.ep.slice(8).map((from) => from - 8)),
     ),
   };
 }
@@ -111,4 +107,48 @@ function buildTable<T extends Uint8Array | Uint16Array>(
     });
   }
   return table;
+}
+
+/**
+ * Fills the move table of a permutation coordinate without allocating per entry.
+ * @param table - The table to fill, sized as n! times the number of moves.
+ * @param moves - For each move and position, the position the piece comes from.
+ * @returns The filled table, indexed by rank times the number of moves plus the move index.
+ */
+function buildPermutationTable<T extends Uint8Array | Uint16Array>(
+  table: T,
+  moves: readonly (readonly number[])[],
+): T {
+  const size = moves[0].length;
+  const count = table.length / moves.length;
+  const permutation = Int8Array.from({ length: size }, (_, i) => i);
+  for (let rank = 0; rank < count; rank++) {
+    if (rank > 0) nextPermutation(permutation);
+    for (let m = 0; m < moves.length; m++) {
+      const from = moves[m];
+      let next = 0;
+      let seen = 0;
+      for (let i = 0; i < size; i++) {
+        const value = permutation[from[i]];
+        next = next * (size - i) + value - BIT_COUNTS[seen & ((1 << value) - 1)];
+        seen |= 1 << value;
+      }
+      table[rank * moves.length + m] = next;
+    }
+  }
+  return table;
+}
+
+/**
+ * Rearranges a permutation into the next one in lexicographic order.
+ * @param permutation - The permutation to advance in place; it must not be the last one.
+ * @returns Nothing.
+ */
+function nextPermutation(permutation: Int8Array): void {
+  let i = permutation.length - 2;
+  while (permutation[i] > permutation[i + 1]) i--;
+  let j = permutation.length - 1;
+  while (permutation[j] < permutation[i]) j--;
+  [permutation[i], permutation[j]] = [permutation[j], permutation[i]];
+  permutation.subarray(i + 1).reverse();
 }

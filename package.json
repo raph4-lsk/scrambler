@@ -63,5 +63,8 @@
   "homepage": "https://github.com/raph4-lsk/scrambler#readme",
   "bugs": {
     "url": "https://github.com/raph4-lsk/scrambler/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -2,7 +2,7 @@
 
 Random state scrambles for speedcubing puzzles, following the WCA method. Pure TypeScript, no dependency, works in React Native, Node and the browser.
 
-> Status: early development. Not published yet.
+> Status: early development. 3x3 only, not published yet.
 
 ## Why
 
@@ -26,6 +26,24 @@ This library fills that gap: a permissively licensed scrambler that runs on any 
 ## Not official
 
 The WCA requires scrambles from its official program (TNoodle) in competition. This library follows the same method, but its scrambles are not official WCA scrambles. WCA is a trademark of the World Cube Association; this project is not affiliated with it.
+
+## Usage
+
+```ts
+import { prepare, randomScramble } from '@cubertimer/scrambler';
+
+prepare('333'); // optional: build the tables ahead of time, for example at app launch
+const scramble = randomScramble('333'); // for example "D' L2 F2 D' L2 U F2 R2 U B2 ..."
+```
+
+A scramble is built in three steps: draw a uniformly random cube state with a secure random source, solve it with Kociemba's two-phase algorithm, and invert the solution. Scrambles are at most 22 moves long.
+
+| Step                  | Node (Apple M3 Pro)                       |
+| --------------------- | ----------------------------------------- |
+| prepare('333')        | about 400 ms, once                        |
+| randomScramble('333') | about 2 ms median, under 30 ms worst case |
+
+For reproducible tests only, pass a seeded source: `randomScramble('333', { random: seededRandom(42) })`.
 
 ## Roadmap
 

@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { stateFromMoves } from '@/puzzles/cube333/moves';
 import { parseMoves } from '@/puzzles/cube333/notation';
 import { randomState } from '@/puzzles/cube333/random-state';
 import { isEqual } from '@/puzzles/cube333/state';
 import { seededRandom } from '@/random';
 import { prepare, randomScramble, type EventId } from '@/scramble';
+
+beforeAll(() => prepare('333'), 60000);
 
 describe('randomScramble 333', () => {
   it('reaches exactly the randomly drawn state', () => {

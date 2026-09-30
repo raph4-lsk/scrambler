@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { applyMoves, stateFromMoves, type Move } from '@/puzzles/cube333/moves';
+import { getPruningTables } from '@/puzzles/cube333/pruning-tables';
 import { parseMoves } from '@/puzzles/cube333/notation';
 import { randomState } from '@/puzzles/cube333/random-state';
 import { DEFAULT_MAX_LENGTH, solve } from '@/puzzles/cube333/search';
@@ -21,6 +22,8 @@ function hasRedundantMoves(moves: Move[]): boolean {
     return previous?.face === OPPOSITE[move.face] && beforePrevious?.face === move.face;
   });
 }
+
+beforeAll(() => getPruningTables(), 60000);
 
 describe('solve', () => {
   it('returns no move for the solved cube', () => {

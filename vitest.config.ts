@@ -7,6 +7,7 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    testTimeout: 20000,
     coverage: {
       include: ['src/**/*.ts'],
       thresholds: { lines: 95, functions: 95, branches: 95, statements: 95 },

@@ -17,11 +17,13 @@ Existing scramblers do not fit React Native apps: the reference ones (TNoodle, m
 ## Usage
 
 ```ts
-import { prepare, randomScramble } from '@cubertimer/scrambler';
+import { prepareAsync, randomScramble } from '@cubertimer/scrambler';
 
-prepare('333');
+await prepareAsync('333');
 const scramble = randomScramble('333');
 ```
+
+prepareAsync builds the tables in short slices so the app stays responsive. Use prepare to build them at once.
 
 In React Native, install expo-crypto or react-native-get-random-values first.
 

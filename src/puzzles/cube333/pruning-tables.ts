@@ -7,8 +7,9 @@ import {
   TWIST_COUNT,
   UD_EDGE_PERM_COUNT,
 } from './coordinates';
-import { getMoveTables, MOVE_COUNT, PHASE2_MOVE_COUNT } from './move-tables';
+import { MOVE_COUNT, moveTablesSteps, PHASE2_MOVE_COUNT } from './move-tables';
 import { SOLVED } from './state';
+import { runSync, type Steps } from '../../steps';
 
 export const GOAL_SLICE = getSlice(SOLVED.ep);
 
@@ -28,33 +29,41 @@ let cached: PruningTables | undefined;
  * @returns For each pair of coordinates, the exact number of moves needed to reach the phase goal.
  */
 export function getPruningTables(): PruningTables {
-  cached ??= buildPruningTables();
+  return runSync(pruningTablesSteps());
+}
+
+/**
+ * Builds the move and pruning tables step by step, or returns them at once if already built.
+ * @returns A generator that pauses regularly and returns the pruning tables.
+ */
+export function* pruningTablesSteps(): Steps<PruningTables> {
+  cached ??= yield* buildPruningTables();
   return cached;
 }
 
 /**
  * Builds the two phase 1 tables and the two phase 2 tables.
- * @returns The pruning tables.
+ * @returns A generator that pauses regularly and returns the pruning tables.
  */
-function buildPruningTables(): PruningTables {
-  const moves = getMoveTables();
+function* buildPruningTables(): Steps<PruningTables> {
+  const moves = yield* moveTablesSteps();
   return {
-    sliceTwist: breadthFirst(
+    sliceTwist: yield* breadthFirst(
       { count: SLICE_COUNT, table: moves.slice, goal: GOAL_SLICE },
       { count: TWIST_COUNT, table: moves.twist, goal: 0 },
       MOVE_COUNT,
     ),
-    sliceFlip: breadthFirst(
+    sliceFlip: yield* breadthFirst(
       { count: SLICE_COUNT, table: moves.slice, goal: GOAL_SLICE },
       { count: FLIP_COUNT, table: moves.flip, goal: 0 },
       MOVE_COUNT,
     ),
-    sliceCornerPerm: breadthFirst(
+    sliceCornerPerm: yield* breadthFirst(
       { count: SLICE_PERM_COUNT, table: moves.slicePerm, goal: 0 },
       { count: CORNER_PERM_COUNT, table: moves.cornerPerm, goal: 0 },
       PHASE2_MOVE_COUNT,
     ),
-    sliceUDEdgePerm: breadthFirst(
+    sliceUDEdgePerm: yield* breadthFirst(
       { count: SLICE_PERM_COUNT, table: moves.slicePerm, goal: 0 },
       { count: UD_EDGE_PERM_COUNT, table: moves.udEdgePerm, goal: 0 },
       PHASE2_MOVE_COUNT,
@@ -74,9 +83,9 @@ interface Coordinate {
  * @param outer - The coordinate that varies slowest in the table index.
  * @param inner - The coordinate that varies fastest in the table index.
  * @param moveCount - The number of moves in both move tables, which contain every inverse move.
- * @returns The distances, indexed by outer value times inner count plus inner value.
+ * @returns A generator that pauses after each outer value and returns the distances.
  */
-function breadthFirst(outer: Coordinate, inner: Coordinate, moveCount: number): Uint8Array {
+function* breadthFirst(outer: Coordinate, inner: Coordinate, moveCount: number): Steps<Uint8Array> {
   const size = outer.count * inner.count;
   const distances = new Uint8Array(size).fill(UNVISITED);
   distances[outer.goal * inner.count + inner.goal] = 0;
@@ -85,6 +94,7 @@ function breadthFirst(outer: Coordinate, inner: Coordinate, moveCount: number): 
     const backward = visited * 2 > size;
     const wanted = backward ? UNVISITED : depth;
     for (let a = 0; a < outer.count; a++) {
+      yield;
       const outerRow = a * moveCount;
       const base = a * inner.count;
       for (let b = 0; b < inner.count; b++) {

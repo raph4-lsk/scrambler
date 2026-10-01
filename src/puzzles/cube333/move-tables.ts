@@ -14,6 +14,7 @@ import {
 } from './coordinates';
 import { FACES, moveState, type Amount, type Move } from './moves';
 import type { CubeState } from './state';
+import { runSync, type Steps } from '../../steps';
 
 export const MOVES: readonly Move[] = FACES.flatMap((face) =>
   ([1, 2, 3] as const).map((amount: Amount) => ({ face, amount })),
@@ -40,6 +41,9 @@ const BIT_COUNTS = Uint8Array.from({ length: 256 }, (_, n) => {
   return count;
 });
 
+const RANKS_PER_STEP = 2048;
+const VALUES_PER_STEP = 256;
+
 let cached: MoveTables | undefined;
 
 /**
@@ -47,36 +51,44 @@ let cached: MoveTables | undefined;
  * @returns For each coordinate value and move, the coordinate value after the move.
  */
 export function getMoveTables(): MoveTables {
-  cached ??= buildMoveTables();
+  return runSync(moveTablesSteps());
+}
+
+/**
+ * Builds the move tables step by step, or returns them at once if already built.
+ * @returns A generator that pauses regularly and returns the move tables.
+ */
+export function* moveTablesSteps(): Steps<MoveTables> {
+  cached ??= yield* buildMoveTables();
   return cached;
 }
 
 /**
  * Builds the move tables: phase 1 coordinates use all 18 moves, phase 2 ones the 10 phase 2 moves.
- * @returns The move tables.
+ * @returns A generator that pauses regularly and returns the move tables.
  */
-function buildMoveTables(): MoveTables {
+function* buildMoveTables(): Steps<MoveTables> {
   const all = MOVES.map(moveState);
   const phase2 = PHASE2_MOVES.map((index) => all[index]);
   return {
-    twist: buildTable(Uint16Array, TWIST_COUNT, all, setTwist, (co, m) =>
+    twist: yield* buildTable(Uint16Array, TWIST_COUNT, all, setTwist, (co, m) =>
       getTwist(m.cp.map((from, i) => (co[from] + m.co[i]) % 3)),
     ),
-    flip: buildTable(Uint16Array, FLIP_COUNT, all, setFlip, (eo, m) =>
+    flip: yield* buildTable(Uint16Array, FLIP_COUNT, all, setFlip, (eo, m) =>
       getFlip(m.ep.map((from, i) => (eo[from] + m.eo[i]) % 2)),
     ),
-    slice: buildTable(Uint16Array, SLICE_COUNT, all, setSlice, (ep, m) =>
+    slice: yield* buildTable(Uint16Array, SLICE_COUNT, all, setSlice, (ep, m) =>
       getSlice(m.ep.map((from) => ep[from])),
     ),
-    cornerPerm: buildPermutationTable(
+    cornerPerm: yield* buildPermutationTable(
       new Uint16Array(CORNER_PERM_COUNT * phase2.length),
       phase2.map((m) => m.cp),
     ),
-    udEdgePerm: buildPermutationTable(
+    udEdgePerm: yield* buildPermutationTable(
       new Uint16Array(UD_EDGE_PERM_COUNT * phase2.length),
       phase2.map((m) => m.ep.slice(0, 8)),
     ),
-    slicePerm: buildPermutationTable(
+    slicePerm: yield* buildPermutationTable(
       new Uint8Array(SLICE_PERM_COUNT * phase2.length),
       phase2.map((m) => m.ep.slice(8).map((from) => from - 8)),
     ),
@@ -90,17 +102,18 @@ function buildMoveTables(): MoveTables {
  * @param moves - The move states, in table order.
  * @param decode - Turns a coordinate value into the pieces it describes, once per value.
  * @param apply - Returns the coordinate value after applying a move to the decoded pieces.
- * @returns The table, indexed by value times the number of moves plus the move index.
+ * @returns A generator that pauses every few hundred values and returns the table.
  */
-function buildTable<T extends Uint8Array | Uint16Array>(
+function* buildTable<T extends Uint8Array | Uint16Array>(
   ArrayType: new (length: number) => T,
   count: number,
   moves: readonly CubeState[],
   decode: (value: number) => number[],
   apply: (pieces: number[], move: CubeState) => number,
-): T {
+): Steps<T> {
   const table = new ArrayType(count * moves.length);
   for (let value = 0; value < count; value++) {
+    if (value % VALUES_PER_STEP === 0) yield;
     const pieces = decode(value);
     moves.forEach((move, m) => {
       table[value * moves.length + m] = apply(pieces, move);
@@ -113,17 +126,18 @@ function buildTable<T extends Uint8Array | Uint16Array>(
  * Fills the move table of a permutation coordinate without allocating per entry.
  * @param table - The table to fill, sized as n! times the number of moves.
  * @param moves - For each move and position, the position the piece comes from.
- * @returns The filled table, indexed by rank times the number of moves plus the move index.
+ * @returns A generator that pauses every few thousand ranks and returns the filled table.
  */
-function buildPermutationTable<T extends Uint8Array | Uint16Array>(
+function* buildPermutationTable<T extends Uint8Array | Uint16Array>(
   table: T,
   moves: readonly (readonly number[])[],
-): T {
+): Steps<T> {
   const size = moves[0].length;
   const count = table.length / moves.length;
   const permutation = Int8Array.from({ length: size }, (_, i) => i);
   for (let rank = 0; rank < count; rank++) {
     if (rank > 0) nextPermutation(permutation);
+    if (rank % RANKS_PER_STEP === 0) yield;
     for (let m = 0; m < moves.length; m++) {
       const from = moves[m];
       let next = 0;

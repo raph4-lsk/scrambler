@@ -1,7 +1,8 @@
 import type { RandomSource } from '../../random';
 import { invertMoves } from './moves';
 import { formatMoves } from './notation';
-import { getPruningTables } from './pruning-tables';
+import { getPruningTables, pruningTablesSteps } from './pruning-tables';
+import { runInSlices, type SliceOptions } from '../../steps';
 import { randomState } from './random-state';
 import { solve } from './search';
 
@@ -22,4 +23,13 @@ export function randomScramble333(random: RandomSource): string {
  */
 export function prepare333(): void {
   getPruningTables();
+}
+
+/**
+ * Builds the 3x3 tables in short slices, so the host stays responsive while they are built.
+ * @param options - The slice length in milliseconds, and how to yield to the host.
+ * @returns A promise resolved once the tables are ready.
+ */
+export async function prepare333Async(options?: SliceOptions): Promise<void> {
+  await runInSlices(pruningTablesSteps(), options);
 }

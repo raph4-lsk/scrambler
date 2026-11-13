@@ -1,3 +1,4 @@
+export type { PlacedPiece, StateConstraint } from './puzzles/cube333/random-state';
 export { cryptoRandom, seededRandom, type RandomSource } from './random';
 export {
   prepare,

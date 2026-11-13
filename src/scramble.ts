@@ -1,3 +1,4 @@
+import type { StateConstraint } from './puzzles/cube333/random-state';
 import { prepare333, prepare333Async, randomScramble333 } from './puzzles/cube333/scramble';
 import type { SliceOptions } from './steps';
 import { cryptoRandom, type RandomSource } from './random';
@@ -6,19 +7,20 @@ export type EventId = '333';
 
 export interface ScrambleOptions {
   readonly random?: RandomSource;
+  readonly constraint?: StateConstraint;
 }
 
 /**
  * Generates a random state scramble for a WCA event, following the WCA method.
  * @param eventId - The WCA event identifier, such as 333.
- * @param options - An optional random source; crypto.getRandomValues is used by default.
+ * @param options - An optional random source (crypto.getRandomValues by default), and for 333 pieces to place, the rest staying random.
  * @returns The scramble in WCA notation.
  */
 export function randomScramble(eventId: EventId, options: ScrambleOptions = {}): string {
   const random = options.random ?? cryptoRandom();
   switch (eventId) {
     case '333':
-      return randomScramble333(random);
+      return randomScramble333(random, options.constraint);
     default:
       throw new RangeError(`Unsupported event ${String(eventId)}`);
   }

@@ -3,16 +3,17 @@ import { invertMoves } from './moves';
 import { formatMoves } from './notation';
 import { getPruningTables, pruningTablesSteps } from './pruning-tables';
 import { runInSlices, type SliceOptions } from '../../steps';
-import { randomState } from './random-state';
+import { constrainedState, randomState, type StateConstraint } from './random-state';
 import { solve } from './search';
 
 /**
  * Generates a random state 3x3 scramble: a uniformly random state, reached by the inverse of its solution.
  * @param random - The source of randomness, cryptoRandom for real scrambles.
+ * @param constraint - Pieces to place at given positions and orientations, the rest staying random.
  * @returns The scramble in WCA notation.
  */
-export function randomScramble333(random: RandomSource): string {
-  const solution = solve(randomState(random));
+export function randomScramble333(random: RandomSource, constraint?: StateConstraint): string {
+  const solution = solve(constraint ? constrainedState(random, constraint) : randomState(random));
   if (!solution) throw new Error('No 3x3 solution found within the length limit');
   return formatMoves(invertMoves(solution));
 }

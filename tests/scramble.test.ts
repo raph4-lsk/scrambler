@@ -25,6 +25,24 @@ describe('randomScramble 333', () => {
     }
   });
 
+  it('reaches a state that meets a constraint', () => {
+    const constraint = {
+      edges: [
+        { piece: 5, position: 0, orientation: 1 },
+        { piece: 4, position: 10, orientation: 0 },
+      ],
+      corners: [{ piece: 7, position: 2, orientation: 1 }],
+    };
+    for (let seed = 1; seed <= 10; seed++) {
+      const state = stateFromMoves(
+        parseMoves(randomScramble('333', { random: seededRandom(seed), constraint })),
+      );
+      expect([state.ep[0], state.eo[0], state.ep[10], state.cp[2], state.co[2]]).toEqual([
+        5, 1, 4, 7, 1,
+      ]);
+    }
+  });
+
   it('uses the secure random source by default', () => {
     expect(parseMoves(randomScramble('333')).length).toBeGreaterThan(0);
   });
